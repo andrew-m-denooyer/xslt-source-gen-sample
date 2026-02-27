@@ -1,0 +1,227 @@
+<#@ template language="C#" hostspecific="true" debug="true" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="System.Xml" #>
+<#@ assembly name="$(SolutionDir)bin/Debug/net8.0/XsltSourceGenSample.dll" #>
+<#@ import namespace="System" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="XsltSourceGenSample" #>
+<#@ output extension=".xslt" #>
+<#
+    // =========================================================================
+    // BasicXsltGenerator.tt
+    // =========================================================================
+    // This T4 template generates an XSLT 1.0 stylesheet that transforms XML
+    // documents conforming to a SOURCE schema into documents conforming to a
+    // TARGET schema.
+    //
+    // It uses SchemaComparer (a pure C# class) to analyse the two XSD files,
+    // then emits XSLT constructs for each category of change:
+    //   - Unchanged elements  → <xsl:copy-of> or <xsl:value-of>
+    //   - Renamed elements    → copy value from old path to new element name
+    //   - Moved elements      → copy value from old XPath to new location
+    //   - Added elements      → emit element with empty/placeholder default
+    //   - Removed elements    → omitted (no XSLT generated)
+    //   - Reordered elements  → explicit element construction in new order
+    //
+    // T4 PRIMER
+    // ---------
+    //   <# ... #>   Control block – C# code that runs during template execution.
+    //   <#= ... #>  Expression block – C# expression whose string value is emitted.
+    //   <#+ ... #>  Class feature block – helper methods available throughout the template.
+    //
+    // How to run outside Visual Studio:
+    //   dotnet tool install -g dotnet-t4
+    //   t4 templates/BasicXsltGenerator.tt
+    // =========================================================================
+
+    // ----- Configuration -----
+    // Adjust these paths to point at your own XSD files.
+    string sourceXsdPath = Host.ResolvePath("../examples/schemas/v1.0.xsd");
+    string targetXsdPath = Host.ResolvePath("../examples/schemas/v2.0.xsd");
+
+    // Perform structural comparison.
+    var comparer = new SchemaComparer();
+    var changes  = comparer.Compare(
+        sourceXsdPath,
+        targetXsdPath,
+        sourceVersion: "v1.0",
+        targetVersion: "v2.0");
+
+    string generatedOn = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") + " UTC";
+#>
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  =============================================================================
+  AUTO-GENERATED XSLT STYLESHEET
+  =============================================================================
+  Source schema : <#= changes.SourceVersion #>
+  Target schema : <#= changes.TargetVersion #>
+  Generated on  : <#= generatedOn #>
+  Generator     : BasicXsltGenerator.tt (T4 template – no AI)
+
+  Summary of detected changes
+  ---------------------------
+  Added elements    : <#= changes.AddedElements.Count #>
+  Removed elements  : <#= changes.RemovedElements.Count #>
+  Moved elements    : <#= changes.MovedElements.Count #>
+  Renamed elements  : <#= changes.RenamedElements.Count #>
+  Reordered elements: <#= changes.ReorderedElements.Count #>
+  Unchanged elements: <#= changes.UnchangedElements.Count #>
+
+  IMPORTANT: Review this file before using in production.
+  Default values for new required elements are empty strings – replace them
+  with appropriate values for your environment.
+  =============================================================================
+-->
+<xsl:stylesheet
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+    version="1.0">
+
+  <xsl:output method="xml" indent="yes" encoding="UTF-8"/>
+
+  <!-- =========================================================
+       ROOT TEMPLATE
+       Matches the document root and triggers element-level
+       templates for the top-level element.
+       ========================================================= -->
+  <xsl:template match="/">
+    <xsl:apply-templates select="<#= changes.RootElementName #>"/>
+  </xsl:template>
+
+  <!-- =========================================================
+       ROOT ELEMENT TEMPLATE
+       Rebuilds the root element with the updated structure.
+       ========================================================= -->
+  <xsl:template match="<#= changes.RootElementName #>">
+    <<#= changes.RootElementName #>>
+<#
+    // -------------------------------------------------------------------------
+    // RENAMED elements: copy the source value to the new element name.
+    // -------------------------------------------------------------------------
+    if (changes.RenamedElements.Count > 0)
+    {
+#>
+
+      <!-- ~~~ RENAMED ELEMENTS ~~~ -->
+      <!-- These elements were renamed between <#= changes.SourceVersion #> and <#= changes.TargetVersion #>. -->
+<#
+        foreach (var kv in changes.RenamedElements)
+        {
+            string sourcePath = kv.Key;
+            string targetPath = kv.Value;
+            string sourceXPath = PathToXPath(sourcePath, changes.RootElementName);
+            string targetName  = GetLastSegment(targetPath);
+#>
+      <!-- Renamed: '<#= sourcePath #>' → '<#= targetPath #>' -->
+      <<#= targetName #>>
+        <xsl:value-of select="<#= sourceXPath #>"/>
+      </<#= targetName #>>
+<#
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // MOVED elements: select the value from the old XPath location.
+    // -------------------------------------------------------------------------
+    if (changes.MovedElements.Count > 0)
+    {
+#>
+
+      <!-- ~~~ MOVED ELEMENTS ~~~ -->
+      <!-- These elements exist at a different path in the target schema. -->
+<#
+        foreach (var kv in changes.MovedElements)
+        {
+            string sourcePath = kv.Key;
+            string targetPath = kv.Value;
+            string sourceXPath = PathToXPath(sourcePath, changes.RootElementName);
+            string targetName  = GetLastSegment(targetPath);
+#>
+      <!-- Moved: '<#= sourcePath #>' → '<#= targetPath #>' -->
+      <<#= targetName #>>
+        <xsl:value-of select="<#= sourceXPath #>"/>
+      </<#= targetName #>>
+<#
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // ADDED elements: emit with empty/placeholder default values.
+    // A TODO comment flags each one for manual review.
+    // -------------------------------------------------------------------------
+    if (changes.AddedElements.Count > 0)
+    {
+#>
+
+      <!-- ~~~ ADDED ELEMENTS ~~~ -->
+      <!-- These elements are new in <#= changes.TargetVersion #> and have no source equivalent. -->
+      <!-- TODO: Replace empty defaults with appropriate values for your domain. -->
+<#
+        foreach (var element in changes.AddedElements)
+        {
+            if (element.IsComplex) continue; // skip container elements; their children handle values
+#>
+      <!-- Added: '<#= element.Path #>' [<#= element.XsdType ?? "string" #>]<#= element.IsRequired ? " REQUIRED" : "" #> -->
+      <<#= element.Name #>><!-- TODO: provide default --></<#= element.Name #>>
+<#
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // UNCHANGED / direct-copy elements
+    // -------------------------------------------------------------------------
+    if (changes.UnchangedElements.Count > 0)
+    {
+#>
+
+      <!-- ~~~ UNCHANGED ELEMENTS ~~~ -->
+      <!-- These elements are identical in both schema versions. -->
+<#
+        foreach (var element in changes.UnchangedElements)
+        {
+            if (element.IsComplex) continue; // complex elements are handled by apply-templates
+            string xPath = PathToXPath(element.Path, changes.RootElementName);
+#>
+      <<#= element.Name #>><xsl:value-of select="<#= xPath #>"/></<#= element.Name #>>
+<#
+        }
+    }
+#>
+    </<#= changes.RootElementName #>>
+  </xsl:template>
+
+</xsl:stylesheet>
+<#+
+    // =========================================================================
+    // Helper methods (T4 class-feature block)
+    // =========================================================================
+
+    /// <summary>
+    /// Converts a "/" separated element path (as used in SchemaChanges) to an
+    /// XPath expression relative to the root element.
+    ///
+    /// Example:
+    ///   path       = "Policy/Insured/FirstName"
+    ///   rootName   = "Policy"
+    ///   → returns    "Insured/FirstName"   (root is the context node in the template)
+    /// </summary>
+    private string PathToXPath(string path, string rootName)
+    {
+        // Remove the root element prefix because it is already the context node.
+        if (path.StartsWith(rootName + "/", StringComparison.OrdinalIgnoreCase))
+            return path.Substring(rootName.Length + 1);
+        if (string.Equals(path, rootName, StringComparison.OrdinalIgnoreCase))
+            return ".";
+        return path;
+    }
+
+    /// <summary>
+    /// Returns the last segment of a "/" separated path (the element name).
+    /// </summary>
+    private string GetLastSegment(string path)
+    {
+        int idx = path.LastIndexOf('/');
+        return idx >= 0 ? path.Substring(idx + 1) : path;
+    }
+#>

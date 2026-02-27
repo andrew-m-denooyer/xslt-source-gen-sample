@@ -1,0 +1,45 @@
+{
+  "_comment": "AI configuration settings for XsltSourceGenSample.",
+  "_usage": "Load this file to configure the AiSchemaAnalyzer before running templates.",
+
+  "openAi": {
+    "_comment": "OpenAI API settings. The API key MUST be set via the OPENAI_API_KEY environment variable, never hard-coded here.",
+    "model": "gpt-4o-mini",
+    "_modelOptions": [
+      "gpt-4o-mini      – best cost/quality balance, recommended",
+      "gpt-4o           – higher quality, higher cost",
+      "gpt-3.5-turbo    – lowest cost, less reliable JSON output"
+    ],
+    "maxTokens": 1000,
+    "temperature": 0.2,
+    "_temperatureNote": "Low temperature (0–0.3) produces more consistent, deterministic JSON output.",
+    "timeoutSeconds": 30
+  },
+
+  "costControl": {
+    "_comment": "Settings to help manage API costs during development and testing.",
+    "enableAiAnalysis": true,
+    "_enableAiAnalysisNote": "Set to false to disable all AI API calls and use fallback analysis.",
+    "cacheResponses": true,
+    "_cacheNote": "When true, responses are cached in /tmp/ai-cache so re-runs don't repeat API calls.",
+    "cacheDirectory": "/tmp/xslt-gen-ai-cache",
+    "maxCachedAgeMinutes": 1440
+  },
+
+  "features": {
+    "_comment": "Feature toggles to control which AI capabilities are active.",
+    "suggestDefaultValues": true,
+    "identifyRisks": true,
+    "detectPatterns": true,
+    "generateMappings": true,
+    "includeDomainContext": true
+  },
+
+  "prompts": {
+    "_comment": "Override default prompt settings (advanced).",
+    "systemPromptOverride": null,
+    "_systemPromptOverrideNote": "Set to a string to replace the built-in system prompt entirely.",
+    "additionalInstructions": null,
+    "_additionalInstructionsNote": "Append extra instructions to the user prompt without replacing the default."
+  }
+}

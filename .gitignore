@@ -1,0 +1,30 @@
+bin/
+obj/
+Generated/
+*.user
+.vs/
+*.suo
+*.userosscache
+*.sln.docstates
+*.swp
+*.bak
+*~
+
+# Don't ignore pre-generated example output – these are checked in for reference
+# so users can see what the templates produce without running them.
+!examples/output/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# AI cache (runtime artefact, not source)
+/tmp/xslt-gen-ai-cache/
+
+# dotnet tool manifest (keep if you use local tools)
+# .config/dotnet-tools.json
+
+# NuGet packages (restored automatically)
+*.nupkg
+packages/
