@@ -1,0 +1,319 @@
+<#@ template language="C#" hostspecific="true" debug="true" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="System.Xml" #>
+<#@ assembly name="$(SolutionDir)bin/Debug/net8.0/XsltSourceGenSample.dll" #>
+<#@ import namespace="System" #>
+<#@ import namespace="System.IO" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="XsltSourceGenSample" #>
+<#@ output extension=".xslt" #>
+<#
+    // =========================================================================
+    // AiEnhancedXsltGenerator.tt
+    // =========================================================================
+    // This T4 template extends BasicXsltGenerator.tt by enriching the generated
+    // XSLT with AI-provided insights:
+    //
+    //   1. Default values recommended by the AI for new required elements.
+    //   2. AI-suggested mappings (computed fields, conditional logic, renames).
+    //   3. Risk warnings embedded as XSLT comments for manual review.
+    //   4. A human-readable migration summary at the top of the stylesheet.
+    //
+    // AI ENHANCEMENT APPROACH
+    // -----------------------
+    // The template calls AiSchemaAnalyzer.AnalyseAsync() synchronously via
+    // .GetAwaiter().GetResult() because T4 templates execute on a single thread
+    // and cannot use `await` directly.  In a production pipeline you would
+    // call the analyser before invoking the template and pass the result in.
+    //
+    // HOW TO ENABLE AI FEATURES
+    // -------------------------
+    //   export OPENAI_API_KEY=sk-...
+    //   t4 templates/AiEnhancedXsltGenerator.tt
+    //
+    // Without an API key the template falls back to the same output as
+    // BasicXsltGenerator.tt with a note in the XSLT header.
+    // =========================================================================
+
+    // ----- Configuration -----
+    string sourceXsdPath    = Host.ResolvePath("../examples/schemas/v1.0.xsd");
+    string targetXsdPath    = Host.ResolvePath("../examples/schemas/v2.0.xsd");
+    string domainDictPath   = Host.ResolvePath("../config/domain-dsl-dictionary.json");
+
+    // Load optional domain context to enrich the AI prompt.
+    string? domainContext = null;
+    if (System.IO.File.Exists(domainDictPath))
+    {
+        domainContext = System.IO.File.ReadAllText(domainDictPath);
+    }
+
+    // Perform structural comparison.
+    var comparer = new SchemaComparer();
+    var changes  = comparer.Compare(
+        sourceXsdPath,
+        targetXsdPath,
+        sourceVersion: "v1.0",
+        targetVersion: "v2.0");
+
+    // Perform AI-enhanced analysis (falls back gracefully when key is absent).
+    var analyser  = new AiSchemaAnalyzer();
+    var enhanced  = analyser.AnalyseAsync(changes, domainContext).GetAwaiter().GetResult();
+    var ai        = enhanced.AiAnalysis;
+
+    bool aiAvailable = ai != null && !string.IsNullOrWhiteSpace(ai.Summary) &&
+                       !ai.Summary.StartsWith("AI analysis unavailable");
+
+    string generatedOn = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") + " UTC";
+
+    // Build lookup dictionaries from AI analysis for easy access in the template.
+    var aiDefaultsByPath  = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    var aiMappingsByTarget = new Dictionary<string, ElementMapping>(StringComparer.OrdinalIgnoreCase);
+
+    if (ai != null)
+    {
+        foreach (var dv in ai.DefaultValues)
+            aiDefaultsByPath[dv.ElementPath] = dv.Value;
+
+        foreach (var m in ai.Mappings)
+            aiMappingsByTarget[m.TargetPath] = m;
+    }
+#>
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  =============================================================================
+  AI-ENHANCED AUTO-GENERATED XSLT STYLESHEET
+  =============================================================================
+  Source schema : <#= enhanced.SourceVersion #>
+  Target schema : <#= enhanced.TargetVersion #>
+  Generated on  : <#= generatedOn #>
+  Generator     : AiEnhancedXsltGenerator.tt (T4 template + OpenAI)
+  AI model      : <#= aiAvailable ? "gpt-4o-mini" : "N/A (fallback mode)" #>
+
+<#
+    if (aiAvailable && ai != null)
+    {
+#>
+  AI ANALYSIS SUMMARY
+  -------------------
+  <#= ai.Summary #>
+
+<#
+        if (ai.Patterns.Count > 0)
+        {
+#>
+  Detected patterns: <#= string.Join(", ", ai.Patterns) #>
+
+<#
+        }
+
+        if (ai.Risks.Count > 0)
+        {
+#>
+  Migration risks identified by AI
+  ----------------------------------
+<#
+            foreach (var risk in ai.Risks)
+            {
+#>
+  [<#= risk.Severity.ToUpper() #>] <#= risk.AffectedElement #>: <#= risk.Description #>
+         Mitigation: <#= risk.Mitigation #>
+<#
+            }
+#>
+
+<#
+        }
+    }
+    else
+    {
+#>
+  NOTE: AI features are disabled (OPENAI_API_KEY not set).
+  Set the environment variable and re-run to get AI-enhanced output.
+
+<#
+    }
+#>
+  Structural change summary
+  -------------------------
+  Added elements    : <#= enhanced.AddedElements.Count #>
+  Removed elements  : <#= enhanced.RemovedElements.Count #>
+  Moved elements    : <#= enhanced.MovedElements.Count #>
+  Renamed elements  : <#= enhanced.RenamedElements.Count #>
+  Reordered elements: <#= enhanced.ReorderedElements.Count #>
+  Unchanged elements: <#= enhanced.UnchangedElements.Count #>
+
+  IMPORTANT: Review this file before using in production.
+  =============================================================================
+-->
+<xsl:stylesheet
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+    version="1.0">
+
+  <xsl:output method="xml" indent="yes" encoding="UTF-8"/>
+
+  <!-- =========================================================
+       ROOT TEMPLATE
+       ========================================================= -->
+  <xsl:template match="/">
+    <xsl:apply-templates select="<#= enhanced.RootElementName #>"/>
+  </xsl:template>
+
+  <!-- =========================================================
+       ROOT ELEMENT TEMPLATE
+       ========================================================= -->
+  <xsl:template match="<#= enhanced.RootElementName #>">
+    <<#= enhanced.RootElementName #>>
+<#
+    // -------------------------------------------------------------------------
+    // AI MAPPINGS: emit elements in the order suggested by the AI analysis.
+    // We iterate the AI's mapping list first to honour AI-specified ordering.
+    // -------------------------------------------------------------------------
+    if (aiAvailable && ai != null && ai.Mappings.Count > 0)
+    {
+#>
+
+      <!-- ~~~ AI-SUGGESTED MAPPINGS ~~~ -->
+<#
+        foreach (var mapping in ai.Mappings)
+        {
+            string targetName = GetLastSegment(mapping.TargetPath);
+            string sourceXPath = PathToXPath(mapping.SourcePath, enhanced.RootElementName);
+#>
+      <!-- [<#= mapping.MappingType.ToUpper() #>] <#= mapping.SourcePath #> → <#= mapping.TargetPath #> -->
+      <!-- AI note: <#= mapping.Notes #> -->
+<#
+            switch (mapping.MappingType.ToLower())
+            {
+                case "direct":
+                case "rename":
+#>
+      <<#= targetName #>><xsl:value-of select="<#= sourceXPath #>"/></<#= targetName #>>
+<#
+                    break;
+
+                case "computed":
+                    if (!string.IsNullOrEmpty(mapping.TransformExpression))
+                    {
+#>
+      <<#= targetName #>><xsl:value-of select="<#= mapping.TransformExpression #>"/></<#= targetName #>>
+<#
+                    }
+                    else
+                    {
+#>
+      <<#= targetName #>><!-- TODO: implement computed transformation --></<#= targetName #>>
+<#
+                    }
+                    break;
+
+                case "conditional":
+                    if (!string.IsNullOrEmpty(mapping.TransformExpression))
+                    {
+#>
+      <<#= targetName #>>
+        <xsl:choose>
+          <xsl:when test="<#= mapping.TransformExpression #>">
+            <xsl:value-of select="<#= sourceXPath #>"/>
+          </xsl:when>
+          <xsl:otherwise><!-- TODO: define otherwise value --></xsl:otherwise>
+        </xsl:choose>
+      </<#= targetName #>>
+<#
+                    }
+                    break;
+
+                default:
+#>
+      <<#= targetName #>><xsl:value-of select="<#= sourceXPath #>"/></<#= targetName #>>
+<#
+                    break;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // ADDED elements: use AI-recommended defaults when available.
+    // -------------------------------------------------------------------------
+    var addedNotInMappings = new List<ElementInfo>();
+    foreach (var element in enhanced.AddedElements)
+    {
+        if (!element.IsComplex && (ai == null ||
+            !aiMappingsByTarget.ContainsKey(element.Path)))
+        {
+            addedNotInMappings.Add(element);
+        }
+    }
+
+    if (addedNotInMappings.Count > 0)
+    {
+#>
+
+      <!-- ~~~ ADDED ELEMENTS (no AI mapping) ~~~ -->
+<#
+        foreach (var element in addedNotInMappings)
+        {
+            aiDefaultsByPath.TryGetValue(element.Path, out string? aiDefault);
+            string defaultValue = aiDefault ?? "''";
+            string aiNote = aiDefault != null
+                ? $"AI-recommended default: {aiDefault}"
+                : "TODO: provide default value";
+#>
+      <!-- Added: '<#= element.Path #>' [<#= element.XsdType ?? "string" #>]<#= element.IsRequired ? " REQUIRED" : "" #> -->
+      <!-- <#= aiNote #> -->
+      <<#= element.Name #>><xsl:value-of select="<#= defaultValue #>"/></<#= element.Name #>>
+<#
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // UNCHANGED elements not already covered by AI mappings.
+    // -------------------------------------------------------------------------
+    var unchangedNotInMappings = new List<ElementInfo>();
+    foreach (var element in enhanced.UnchangedElements)
+    {
+        if (!element.IsComplex && (ai == null ||
+            !aiMappingsByTarget.ContainsKey(element.Path)))
+        {
+            unchangedNotInMappings.Add(element);
+        }
+    }
+
+    if (unchangedNotInMappings.Count > 0)
+    {
+#>
+
+      <!-- ~~~ DIRECT COPY (unchanged elements not in AI mappings) ~~~ -->
+<#
+        foreach (var element in unchangedNotInMappings)
+        {
+            string xPath = PathToXPath(element.Path, enhanced.RootElementName);
+#>
+      <<#= element.Name #>><xsl:value-of select="<#= xPath #>"/></<#= element.Name #>>
+<#
+        }
+    }
+#>
+    </<#= enhanced.RootElementName #>>
+  </xsl:template>
+
+</xsl:stylesheet>
+<#+
+    // =========================================================================
+    // Helper methods (T4 class-feature block)
+    // =========================================================================
+
+    private string PathToXPath(string path, string rootName)
+    {
+        if (path.StartsWith(rootName + "/", StringComparison.OrdinalIgnoreCase))
+            return path.Substring(rootName.Length + 1);
+        if (string.Equals(path, rootName, StringComparison.OrdinalIgnoreCase))
+            return ".";
+        return path;
+    }
+
+    private string GetLastSegment(string path)
+    {
+        int idx = path.LastIndexOf('/');
+        return idx >= 0 ? path.Substring(idx + 1) : path;
+    }
+#>

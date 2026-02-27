@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>XsltSourceGenSample</AssemblyName>
+    <RootNamespace>XsltSourceGenSample</RootNamespace>
+    <Optimize>false</Optimize>
+
+    <!-- Place generated XSLT files in examples/output for easy review -->
+    <GeneratedOutputDirectory>$(MSBuildProjectDirectory)/examples/output</GeneratedOutputDirectory>
+  </PropertyGroup>
+
+  <!-- ============================================================
+       NuGet packages
+       ============================================================ -->
+  <ItemGroup>
+    <!--
+      OpenAI .NET SDK – official client for OpenAI Chat Completions API.
+      Used by AiSchemaAnalyzer to send schema diffs and receive JSON analysis.
+    -->
+    <PackageReference Include="OpenAI" Version="2.1.0" />
+
+    <!--
+      System.Text.Json – high-performance JSON serialisation/deserialisation.
+      Used to parse AiSchemaAnalysis from OpenAI responses and read config files.
+      Included in .NET 8 runtime but listed here for explicitness.
+    -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+  <!-- ============================================================
+       T4 templates
+       T4 templates are text transformation files processed at design
+       time (in Visual Studio) or via the dotnet-t4 CLI tool.
+       They are NOT compiled – they generate .xslt files as output.
+
+       To run templates manually:
+         dotnet tool install -g dotnet-t4
+         t4 templates/BasicXsltGenerator.tt -o examples/output/Transform_v1_to_v2_basic.xslt
+         t4 templates/AiEnhancedXsltGenerator.tt -o examples/output/Transform_v1_to_v2_ai_enhanced.xslt
+       ============================================================ -->
+  <ItemGroup>
+    <None Include="templates/*.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+    </None>
+  </ItemGroup>
+
+  <!-- ============================================================
+       Configuration and example files (included for IDE navigation)
+       ============================================================ -->
+  <ItemGroup>
+    <None Include="config/*.json" />
+    <None Include="examples/**/*" />
+    <None Include="docs/*.md" />
+  </ItemGroup>
+
+</Project>

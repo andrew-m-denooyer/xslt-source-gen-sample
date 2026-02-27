@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  sample-v1.xml – Sample insurance policy conforming to v1.0 schema.
+  
+  Use this file to test the generated XSLT transformations:
+  
+    xsltproc examples/output/Transform_v1_to_v2_basic.xslt examples/schemas/sample-v1.xml
+  
+  or with .NET:
+  
+    dotnet run -- transform sample-v1.xml
+-->
+<Policy>
+
+  <!-- Basic policy identifiers -->
+  <PolicyNumber>HOME-123456</PolicyNumber>
+  <LegacyPolicyId>LEGACY-98765</LegacyPolicyId>
+  <LineOfBusiness>HomeOwners</LineOfBusiness>
+
+  <!-- Dates use abbreviated names in v1.0 -->
+  <EffDt>2024-01-01</EffDt>
+  <ExpDt>2025-01-01</ExpDt>
+
+  <PolicyStatus>Active</PolicyStatus>
+
+  <!-- Premium uses abbreviated name in v1.0 -->
+  <PremiumAmt>1250.00</PremiumAmt>
+
+  <!-- Insured party – flat address structure in v1.0 -->
+  <Insured>
+    <InsuredName>Jane Smith</InsuredName>
+    <DateOfBirth>1985-06-15</DateOfBirth>
+    <EmailAddress>jane.smith@example.com</EmailAddress>
+    <PhoneNumber>555-867-5309</PhoneNumber>
+
+    <!-- These flat address fields move into a nested Address element in v2.0 -->
+    <StreetAddress>742 Evergreen Terrace</StreetAddress>
+    <City>Springfield</City>
+    <State>IL</State>
+    <PostalCode>62701</PostalCode>
+  </Insured>
+
+  <!-- Coverage details -->
+  <Coverage>
+    <CoverageType>Comprehensive</CoverageType>
+    <!-- Note: in v1.0 CoverageAmt comes before DeductibleAmt (order swaps in v2.0) -->
+    <CoverageAmt>250000.00</CoverageAmt>
+    <DeductibleAmt>1000.00</DeductibleAmt>
+    <Notes>Standard homeowner policy. No special endorsements.</Notes>
+  </Coverage>
+
+</Policy>

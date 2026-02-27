@@ -1,0 +1,94 @@
+{
+  "_comment": "Domain DSL Dictionary – provides domain-specific context to the AI analyser.",
+  "_usage": "Load this file and pass its contents as 'domainContext' to AiSchemaAnalyzer.AnalyseAsync().",
+  "_schema_version": "1.0",
+
+  "domain": "Insurance / Policy Administration",
+
+  "abbreviations": {
+    "_comment": "Common abbreviations used in element names within this domain.",
+    "Eff":   "Effective",
+    "Exp":   "Expiration",
+    "Dt":    "Date",
+    "Amt":   "Amount",
+    "Num":   "Number",
+    "Cd":    "Code",
+    "Desc":  "Description",
+    "Addr":  "Address",
+    "Ph":    "Phone",
+    "Prem":  "Premium",
+    "Cov":   "Coverage",
+    "Pol":   "Policy",
+    "Ins":   "Insured",
+    "Lob":   "LineOfBusiness",
+    "Ref":   "Reference",
+    "Stat":  "Status",
+    "Seq":   "Sequence"
+  },
+
+  "businessRules": {
+    "_comment": "Domain-specific validation and derivation rules the AI should be aware of.",
+    "PolicyNumber": {
+      "format": "LLLL-NNNNNN (4 letters, dash, 6 digits)",
+      "example": "HOME-123456",
+      "derivation": "Assigned by policy administration system on policy creation."
+    },
+    "EffectiveDate": {
+      "rule": "Must be today or a future date for new policies.",
+      "format": "ISO 8601 (yyyy-MM-dd)",
+      "default": "Current date"
+    },
+    "ExpirationDate": {
+      "rule": "Must be exactly 1 year after EffectiveDate for standard annual policies.",
+      "derivation": "EffectiveDate + 365 days"
+    },
+    "PremiumAmount": {
+      "type": "xs:decimal",
+      "scale": 2,
+      "rule": "Must be positive; zero premium requires underwriter approval."
+    },
+    "PolicyStatus": {
+      "allowedValues": ["Active", "Cancelled", "Expired", "Pending", "Suspended"],
+      "default": "Pending"
+    },
+    "LineOfBusiness": {
+      "allowedValues": ["HomeOwners", "Auto", "Life", "Commercial", "Umbrella"],
+      "rule": "Determines which coverage sections are required."
+    }
+  },
+
+  "migrationHints": {
+    "_comment": "Domain knowledge to help the AI suggest better defaults during migration.",
+    "newRequiredElements": {
+      "PolicyVersion": {
+        "hint": "This is a new audit field. Default to '2.0' when migrating from v1.",
+        "suggestedDefault": "2.0"
+      },
+      "AuditTimestamp": {
+        "hint": "Use the migration run timestamp in ISO 8601 format.",
+        "suggestedDefault": "current-dateTime()"
+      }
+    },
+    "removedElements": {
+      "LegacyPolicyId": {
+        "hint": "Superseded by PolicyNumber. No action needed."
+      }
+    },
+    "renamedElements": {
+      "InsuredName → InsuredFullName": {
+        "hint": "Simple rename – copy value directly."
+      },
+      "CoverageAmt → CoverageAmount": {
+        "hint": "Field expanded from abbreviation – copy value directly."
+      }
+    }
+  },
+
+  "commonPatterns": {
+    "_comment": "Recurring migration patterns seen across versions in this domain.",
+    "fieldExpansion": "Abbreviated field names are often expanded in newer versions (e.g., Amt → Amount).",
+    "auditFields": "Newer versions commonly add audit/versioning fields (CreatedBy, ModifiedDate, SchemaVersion).",
+    "addressRestructure": "Address fields frequently move from flat structure to nested Address complex type.",
+    "coverageConsolidation": "Multiple coverage flags sometimes merge into a structured Coverage section."
+  }
+}

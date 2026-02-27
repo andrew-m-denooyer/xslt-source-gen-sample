@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  v2.0.xsd – Insurance Policy schema (version 2.0)
+  
+  This is the TARGET schema used in the XSLT generation examples.
+  It demonstrates common migration patterns from v1.0:
+  
+  CHANGES from v1.0:
+  ==================
+  
+  1. ADDED fields (new requirements):
+     - Policy/PolicyVersion      : new audit field, always "2.0"
+     - Policy/AuditTimestamp     : migration timestamp
+     - Insured/TaxId             : new regulatory requirement
+  
+  2. REMOVED fields (deprecated):
+     - Policy/LegacyPolicyId     : superseded by PolicyNumber
+     - Coverage/Notes            : replaced by structured fields
+  
+  3. RENAMED fields (abbreviations expanded):
+     - Policy/EffDt              → Policy/EffectiveDate
+     - Policy/ExpDt              → Policy/ExpirationDate
+     - Policy/PremiumAmt         → Policy/PremiumAmount
+     - Insured/InsuredName       → Insured/InsuredFullName
+     - Coverage/CoverageAmt      → Coverage/CoverageAmount
+     - Coverage/DeductibleAmt    → Coverage/DeductibleAmount
+  
+  4. RESTRUCTURED fields (address moved into nested element):
+     - Insured/StreetAddress     → Insured/Address/StreetAddress
+     - Insured/City              → Insured/Address/City
+     - Insured/State             → Insured/Address/State
+     - Insured/PostalCode        → Insured/Address/PostalCode
+  
+  5. REORDERED elements:
+     - Policy: LineOfBusiness now comes after PolicyVersion
+     - Coverage: DeductibleAmount now comes before CoverageAmount
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+
+  <!-- Root element -->
+  <xs:element name="Policy" type="PolicyType">
+    <xs:annotation>
+      <xs:documentation>Root element representing an insurance policy (v2.0 schema).</xs:documentation>
+    </xs:annotation>
+  </xs:element>
+
+  <!-- ============================================================
+       PolicyType – top-level policy container (v2.0)
+       ============================================================ -->
+  <xs:complexType name="PolicyType">
+    <xs:sequence>
+
+      <!-- Policy identifier -->
+      <xs:element name="PolicyNumber" type="xs:string" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Unique policy identifier in format LLLL-NNNNNN.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- NEW in v2.0: schema version for audit/compatibility -->
+      <xs:element name="PolicyVersion" type="xs:string" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Schema version that created this policy record. Always "2.0" for new policies.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- REORDERED: LineOfBusiness now follows PolicyVersion -->
+      <xs:element name="LineOfBusiness" type="xs:string" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Type of insurance policy (HomeOwners, Auto, Life, Commercial, Umbrella).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- RENAMED: EffDt → EffectiveDate -->
+      <xs:element name="EffectiveDate" type="xs:date" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Policy effective date (was EffDt in v1.0).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- RENAMED: ExpDt → ExpirationDate -->
+      <xs:element name="ExpirationDate" type="xs:date" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Policy expiration date (was ExpDt in v1.0).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- Policy status -->
+      <xs:element name="PolicyStatus" type="xs:string" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Current status: Active, Cancelled, Expired, Pending, Suspended.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- RENAMED: PremiumAmt → PremiumAmount -->
+      <xs:element name="PremiumAmount" type="xs:decimal" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Annual premium amount in USD (was PremiumAmt in v1.0).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- NEW in v2.0: audit timestamp -->
+      <xs:element name="AuditTimestamp" type="xs:dateTime" minOccurs="0" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Timestamp of the last record modification (ISO 8601).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- Insured party information -->
+      <xs:element name="Insured" type="InsuredType" minOccurs="1" maxOccurs="1"/>
+
+      <!-- Coverage details -->
+      <xs:element name="Coverage" type="CoverageType" minOccurs="1" maxOccurs="1"/>
+
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ============================================================
+       InsuredType – policy holder information (v2.0)
+       Note: address is now a nested complex type
+       ============================================================ -->
+  <xs:complexType name="InsuredType">
+    <xs:sequence>
+
+      <!-- RENAMED: InsuredName → InsuredFullName -->
+      <xs:element name="InsuredFullName" type="xs:string" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Full name of the insured party (was InsuredName in v1.0).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <xs:element name="DateOfBirth" type="xs:date" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Insured's date of birth.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- NEW in v2.0: tax identification for regulatory compliance -->
+      <xs:element name="TaxId" type="xs:string" minOccurs="0" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Tax identification number (SSN or EIN) – new in v2.0.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <xs:element name="EmailAddress" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="PhoneNumber"  type="xs:string" minOccurs="0" maxOccurs="1"/>
+
+      <!-- RESTRUCTURED: flat address fields wrapped in Address complex element -->
+      <xs:element name="Address" type="AddressType" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Mailing address (v1.0 had flat StreetAddress/City/State/PostalCode fields here).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ============================================================
+       AddressType – structured address (new in v2.0)
+       ============================================================ -->
+  <xs:complexType name="AddressType">
+    <xs:sequence>
+      <xs:element name="StreetAddress" type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="City"          type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="State"         type="xs:string" minOccurs="1" maxOccurs="1"/>
+      <xs:element name="PostalCode"    type="xs:string" minOccurs="1" maxOccurs="1"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ============================================================
+       CoverageType – insurance coverage details (v2.0)
+       REORDERED: DeductibleAmount now appears before CoverageAmount
+       ============================================================ -->
+  <xs:complexType name="CoverageType">
+    <xs:sequence>
+
+      <xs:element name="CoverageType" type="xs:string" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Type of coverage (Comprehensive, Liability, etc.).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- REORDERED + RENAMED: DeductibleAmt → DeductibleAmount (now comes first) -->
+      <xs:element name="DeductibleAmount" type="xs:decimal" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Deductible amount in USD (was DeductibleAmt in v1.0; reordered before CoverageAmount).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- RENAMED: CoverageAmt → CoverageAmount -->
+      <xs:element name="CoverageAmount" type="xs:decimal" minOccurs="1" maxOccurs="1">
+        <xs:annotation>
+          <xs:documentation>Total coverage amount in USD (was CoverageAmt in v1.0).</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+
+      <!-- Notes element REMOVED – no equivalent in v2.0 -->
+
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>
